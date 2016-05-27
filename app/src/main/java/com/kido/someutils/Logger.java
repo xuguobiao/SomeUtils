@@ -17,9 +17,13 @@ public class Logger {
     private static final String TAG = "kido";
     private static final String LOG_ENABLE_MARK_FILE_NAME = "com.kido.log.enable";
 
-    private static boolean sIsLogEnabled = false;
+    private static boolean sIsLogEnabled = true;
 
     private static LogLevel sLogLevel = LogLevel.VERBOSE;
+
+    static {
+        initByBuildType(); // 默认情况下根据buildType预先设置
+    }
 
     /**
      * 日志输出条件 <br>
@@ -30,7 +34,7 @@ public class Logger {
     public static enum LogCondition {
         ALWAYS,
         NEVER,
-        ACCORDING_SD_FILE, // 注：此处需要SD读权限，否则不会生效
+        ACCORDING_SD_FILE, // 注：此处需要SD读权限，否则此功能不会生效
     }
 
     /**
@@ -74,9 +78,25 @@ public class Logger {
     /**
      * 若log的输出条件设置为ACCORDING_SD_FILE，则根据文件是否存在决定是否输出log，存在则输出。
      */
-    private boolean hasLogMarkFile() {
+    private static boolean hasLogMarkFile() {
         File logMarkFile = new File(Environment.getExternalStorageDirectory(), LOG_ENABLE_MARK_FILE_NAME);
         return logMarkFile.exists();
+    }
+
+    private static boolean canILog(LogLevel logLevel) {
+        return sIsLogEnabled && sLogLevel.value >= logLevel.value;
+    }
+
+
+    /**
+     * 若buildType是debug模式，日志条件就设置为总是输出；否则设置为ACCORDING_SD_FILE
+     */
+    public static void initByBuildType() {
+        if (BuildConfig.DEBUG) {
+            init(LogCondition.ALWAYS, LogLevel.VERBOSE);
+        } else {
+            init(LogCondition.ACCORDING_SD_FILE, LogLevel.VERBOSE);
+        }
     }
 
     /**
@@ -93,7 +113,7 @@ public class Logger {
             switch (logCondition) {
                 case ALWAYS:
                     sIsLogEnabled = true;
-                    sLogLevel = logLevel == null ? LogLevel.VERBOSE : logLevel;
+                    sLogLevel = logLevel != null ? logLevel : LogLevel.VERBOSE;
                     break;
                 case NEVER:
                     sIsLogEnabled = false;
@@ -106,7 +126,7 @@ public class Logger {
                         if (files != null && files.length > 0) {
                             int name = Integer.parseInt(files[0].getName());
                             LogLevel level = LogLevel.valueOf(name);
-                            sLogLevel = level == null ? LogLevel.VERBOSE : logLevel == null ? LogLevel.VERBOSE : logLevel;
+                            sLogLevel = level != null ? level : logLevel != null ? logLevel : LogLevel.VERBOSE; // 优先级：文件名->参数logLevel->VERBOSE
                         }
                     }
                     break;
@@ -117,13 +137,20 @@ public class Logger {
 
     }
 
+
     public static void e(String msg) {
         e(TAG, msg);
     }
 
     public static void e(String tag, String msg) {
-        if (sIsLogEnabled && sLogLevel.value >= LogLevel.ERROR.value) {
+        if (canILog(LogLevel.ERROR)) {
             Log.e(tag, msg);
+        }
+    }
+
+    public static void e(String tag, String msg, Throwable tr) {
+        if (canILog(LogLevel.ERROR)) {
+            Log.e(tag, msg, tr);
         }
     }
 
@@ -132,8 +159,14 @@ public class Logger {
     }
 
     public static void w(String tag, String msg) {
-        if (sIsLogEnabled && sLogLevel.value >= LogLevel.WARN.value) {
+        if (canILog(LogLevel.WARN)) {
             Log.w(tag, msg);
+        }
+    }
+
+    public static void w(String tag, String msg, Throwable tr) {
+        if (canILog(LogLevel.WARN)) {
+            Log.w(tag, msg, tr);
         }
     }
 
@@ -142,8 +175,14 @@ public class Logger {
     }
 
     public static void i(String tag, String msg) {
-        if (sIsLogEnabled && sLogLevel.value >= LogLevel.INFO.value) {
+        if (canILog(LogLevel.INFO)) {
             Log.i(tag, msg);
+        }
+    }
+
+    public static void i(String tag, String msg, Throwable tr) {
+        if (canILog(LogLevel.INFO)) {
+            Log.i(tag, msg, tr);
         }
     }
 
@@ -152,7 +191,13 @@ public class Logger {
     }
 
     public static void d(String tag, String msg) {
-        if (sIsLogEnabled && sLogLevel.value >= LogLevel.DEBUG.value) {
+        if (canILog(LogLevel.DEBUG)) {
+            Log.d(tag, msg);
+        }
+    }
+
+    public static void d(String tag, String msg, Throwable tr) {
+        if (canILog(LogLevel.DEBUG)) {
             Log.d(tag, msg);
         }
     }
@@ -162,10 +207,17 @@ public class Logger {
     }
 
     public static void v(String tag, String msg) {
-        if (sIsLogEnabled && sLogLevel.value >= LogLevel.DEBUG.value) {
+        if (canILog(LogLevel.VERBOSE)) {
             Log.v(tag, msg);
         }
     }
+
+    public static void v(String tag, String msg, Throwable tr) {
+        if (canILog(LogLevel.VERBOSE)) {
+            Log.v(tag, msg);
+        }
+    }
+
 
     /**
      * 使用默认TAG，INFO级别输出
